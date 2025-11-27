@@ -1,0 +1,2 @@
+src/res/ffmpeg.exe filter=lfs diff=lfs merge=lfs -text
+src/res/ffprobe.exe filter=lfs diff=lfs merge=lfs -text
