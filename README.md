@@ -9,7 +9,7 @@
 
 ## Table of contents
 - [Requirements](#requirements)
-- [Quick start](#quick-start)
+- [How to run](#how-to-run)
 - [What's included](#whats-included)
 - [Contact](#contact)
 - [Copyright and license](#copyright-and-license)
@@ -17,7 +17,7 @@
 ## Requirements
 IDE which can run java code and at least JDK-17
 
-## Quick start
+## How to run
 
 1.  Open console
 2.  Change directory to where the jar file is located
