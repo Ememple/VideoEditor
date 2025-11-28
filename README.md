@@ -29,7 +29,6 @@ IDE which can run java code and at least JDK-17
 
 ## What's included
 
-Some text
 
 ```text
 VideoEditor/
