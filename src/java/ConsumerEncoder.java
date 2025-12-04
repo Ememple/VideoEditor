@@ -1,4 +1,5 @@
 import java.io.BufferedReader;
+import java.io.File;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.List;
@@ -44,21 +45,20 @@ public class ConsumerEncoder implements Runnable {
     }
 
     /**
-     * dá příkaz do FFmpeg který se následně spustí
-     * @param inputPath cesta k videím
-     * @param outputPath cesta k videím
-     * @return vrací jestli byl úspěšný
+     * metoda na přidání watermarku
+     * @param task, objekt ve které jsou uležny data pro ffmpeg
+     * @return vrátí kód úspěchu
+     * @throws Exception
      */
-    private int runFFmpeg(String inputPath, String outputPath) throws Exception {
-
+    private int addWatermark(TaskData task) throws Exception {
         String ffmpegPath = Main.FFMPEG_PATH_EXTERNAL;
 
         List<String> command = new ArrayList<>(List.of(
                 ffmpegPath, "-y",
-                "-i", inputPath,
+                "-i", task.getInputPath(),
                 "-i", Main.EXTERNAL_WATERMARK_PATH,
                 "-filter_complex", "[0:v][1:v] overlay=10:10",
-                outputPath
+                task.getOutputPath()
         ));
 
         ProcessBuilder pb = new ProcessBuilder(command);
@@ -66,13 +66,58 @@ public class ConsumerEncoder implements Runnable {
 
         Process process = pb.start();
 
-        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
-            while (reader.readLine() != null) {}
-        }
+        return process.waitFor();
+    }
 
+    /**
+     * metoda na vystřižení části videa
+     * @param task, objekt ve které jsou uležny data pro ffmpeg
+     * @return vrátí kód úspěchu
+     * @throws Exception
+     */
+    private int trim(TaskData task) throws Exception{
+        String ffmpegPath = Main.FFMPEG_PATH_EXTERNAL;
+
+        List<String> command = new ArrayList<>(List.of(
+                ffmpegPath, "-y",
+                "-ss", task.getTrimStart(),
+                "-i", task.getInputPath(),
+                "-t", task.getTrimDuration(),
+                "-c", "copy",
+                task.getOutputPath()
+        ));
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
 
         return process.waitFor();
     }
+
+    /**
+     * metoda na změnu formátu videa
+     * @param task, objekt ve které jsou uležny data pro ffmpeg
+     * @return vrátí kód úspěchu
+     * @throws Exception
+     */
+    private int convertFormat(TaskData task) throws Exception{
+        String ffmpegPath = Main.FFMPEG_PATH_EXTERNAL;
+
+        List<String> command = new ArrayList<>(List.of(
+                ffmpegPath, "-y",
+                "-i", task.getInputPath(),
+                task.getOutputPath()
+        ));
+
+        ProcessBuilder pb = new ProcessBuilder(command);
+        pb.redirectErrorStream(true);
+
+        Process process = pb.start();
+
+        return process.waitFor();
+    }
+
 
     /**
      * ověřuje vstupy a bezpečné předává úkoly
@@ -84,25 +129,40 @@ public class ConsumerEncoder implements Runnable {
                 TaskData task = encodingQueue.take();
 
                 if (task.isPoisonPill()) {
-                    finishedQueue.put(new TaskData());
+                    finishedQueue.put(task);
                     break;
                 }
 
-                int exitCode = runFFmpeg(task.getInputPath(), task.getOutputPath());
+                int exitCode = 1;
+
+                switch (task.getOperation()) {
+                    case ADD_WATERMARK:
+                        exitCode = addWatermark(task);
+                        break;
+                    case TRIM:
+                        exitCode = trim(task);
+                        break;
+                    case CONVERT_FORMAT:
+                        exitCode = convertFormat(task);
+                        break;
+                    default:
+                        safeLog("Chyba: " + task);
+                        break;
+                }
 
                 if (exitCode == 0) {
-                    safeLog("Úspěšně dokončeno: " + task);
-                    finishedQueue.put(new TaskData(task.getInputPath(), task.getOutputPath()));
+                    safeLog("Úspěšně dokončeno: " + task.getOperation() + " na " + task);
+                    finishedQueue.put(task);
                 } else {
-                    safeLog("Chyba kódování "+ exitCode + ": " + task);
+                    safeLog("Chyba při akci " + task.getOperation());
                 }
 
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                safeLog("Přerušení konzumenta.");
+                safeLog("Přerušení konzumenta");
                 break;
             } catch (Exception e) {
-                safeLog("Neznámá chyba při FFmpeg: " + e.getMessage());
+                safeLog("Neznámá chyba: " + e.getMessage());
             }
         }
         safeLog("Ukončen");

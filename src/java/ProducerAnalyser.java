@@ -13,17 +13,30 @@ public class ProducerAnalyser implements Runnable {
     private final BlockingQueue<TaskData> encodingQueue;
     private final Lock logLock;
     private final String inputPath;
+    private final OperationType action;
+    private final String format;
+    private final String trimStart;
+    private final String trimDuration;
 
     /**
      * konstruktor pro třídu ProducerAnalyser
+     *
      * @param encodingQueue fronta pro vkládání úloh
-     * @param logLock lock pro synchonizaci logování
-     * @param inputPath cesta k vstupní složce zadaného uživatelem
+     * @param logLock       lock pro synchonizaci logování
+     * @param inputPath     cesta k vstupní složce zadaného uživatelem
+     * @param action        akce která se má provést
+     * @param format        formát, na který se má video změnit
+     * @param trimStart     začátek video
+     * @param trimDuration  jak dlouhé má video být
      */
-    public ProducerAnalyser(BlockingQueue<TaskData> encodingQueue, Lock logLock, String inputPath) {
+    public ProducerAnalyser(BlockingQueue<TaskData> encodingQueue, Lock logLock, String inputPath, OperationType action, String format, String trimStart, String trimDuration) {
         this.encodingQueue = encodingQueue;
         this.logLock = logLock;
         this.inputPath = inputPath;
+        this.action = action;
+        this.format = format;
+        this.trimStart = trimStart;
+        this.trimDuration = trimDuration;
     }
 
     /**
@@ -100,12 +113,11 @@ public class ProducerAnalyser implements Runnable {
             for (File file : files) {
                 try {
                     String duration = runFFprobe(file.getAbsolutePath());
-
                     if (!duration.equals("0")) {
                         String fileName = file.getName();
-                        String outputFileName = fileName.substring(0, fileName.lastIndexOf('.')) + "_WM.mp4";
+                        String outputFileName = fileName.substring(0, fileName.lastIndexOf('.')) + "." + this.format;
 
-                        TaskData task = new TaskData(file.getAbsolutePath(), Main.OUTPUT_DIR + "/" + outputFileName);
+                        TaskData task = new TaskData(this.action,file.getAbsolutePath(),Main.OUTPUT_DIR + "/" + outputFileName,this.trimStart,this.trimDuration,this.format);
                         encodingQueue.put(task);
                         safeLog("Úspěšně analyzováno: "+ file.getName());
                     }

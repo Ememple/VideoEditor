@@ -2,6 +2,7 @@ import java.io.File;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.Scanner;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -63,12 +64,45 @@ public class Main {
     }
 
     public static void main(String[] args) {
-        if (args.length < 1) {
-            System.err.println("Chyba: Nezadal jste cestu ke vstupní složce/videu.");
-            System.err.println("Použití: java -jar muj_projekt.jar <cesta_ke_vstupu>");
-            System.err.println("Příklad: java -jar muj_projekt.jar C:\\cesta\\k\\videim");
-            return;
+        Lock logLock = new ReentrantLock();
+        BlockingQueue<TaskData> encodingQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+        BlockingQueue<TaskData> finishedQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
+
+        Scanner scanner = new Scanner(System.in);
+        System.out.println("Zadejte cestu ke složce s videi:");
+        String inputPath = scanner.nextLine();
+
+        System.out.println("Vyberte akci: 1.) WATERMARK, 2.) TRIM, 3.) KONVERZE:");
+        int actionChoice = scanner.nextInt();
+        scanner.nextLine();
+
+        String start= "00:00:00";
+        String duration = "00:00:00";
+        String format = "mp4";
+        OperationType action  = null;
+        ProducerAnalyser producerAnalyser = null;
+        switch (actionChoice) {
+            case 1:
+                action = OperationType.ADD_WATERMARK;
+                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,null,null);
+                break;
+            case 2:
+                action = OperationType.TRIM;
+                System.out.println("Zadejte start formát HH:MM:SS:");
+                start = scanner.nextLine();
+                System.out.println("Zadejte délku formát HH:MM:SS:");
+                duration = scanner.nextLine();
+                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,start,duration);
+                break;
+            case 3:
+                action = OperationType.CONVERT_FORMAT;
+                System.out.println("Zadejte formát:");
+                format = scanner.nextLine();
+                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,null,null);
+                break;
+            default: System.err.println("Neplatná volba");
         }
+        scanner.close();
 
         try {
             prepareResources();
@@ -77,18 +111,12 @@ public class Main {
             return;
         }
 
-        String INPUT_PATH = args[0];
         System.out.println("Start");
         long startTime = System.nanoTime();
         new File(OUTPUT_DIR).mkdirs();
 
-        Lock logLock = new ReentrantLock();
-
-        BlockingQueue<TaskData> encodingQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
-        BlockingQueue<TaskData> finishedQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
-
         ExecutorService producerService = Executors.newSingleThreadExecutor();
-        producerService.execute(new ProducerAnalyser(encodingQueue, logLock,INPUT_PATH));
+        producerService.execute(producerAnalyser);
 
         ExecutorService consumerService = Executors.newFixedThreadPool(NUM_ENCODER_THREADS);
         for (int i = 0; i < NUM_ENCODER_THREADS; i++) {
