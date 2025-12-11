@@ -24,7 +24,7 @@ IDE which can run java code and at least JDK-17
 3.  Run the jar file
 
     ```
-    java -jar <name.jar> <folder_with_videos>
+    java -jar <name.jar>
     ```
 
 ## What's included
