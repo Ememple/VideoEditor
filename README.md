@@ -1,7 +1,7 @@
 <h1>Video Editor</h1>
 
   <p>
-    Project for adding watermark to videos
+    App for editing videos
     <br>
     
   </p>
