@@ -68,4 +68,8 @@ public class TaskData {
     public String toString() {
         return inputPath != null ? new java.io.File(inputPath).getName() : "POISON_PILL";
     }
+
+    public String getFormat() {
+        return format;
+    }
 }

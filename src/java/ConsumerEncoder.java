@@ -65,7 +65,11 @@ public class ConsumerEncoder implements Runnable {
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
-
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+            }
+        }
         return process.waitFor();
     }
 
@@ -91,6 +95,11 @@ public class ConsumerEncoder implements Runnable {
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+            }
+        }
 
         return process.waitFor();
     }
@@ -114,7 +123,11 @@ public class ConsumerEncoder implements Runnable {
         pb.redirectErrorStream(true);
 
         Process process = pb.start();
-
+        try (BufferedReader reader = new BufferedReader(new InputStreamReader(process.getInputStream()))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+            }
+        }
         return process.waitFor();
     }
 

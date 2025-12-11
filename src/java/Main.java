@@ -1,8 +1,8 @@
-import java.io.File;
-import java.io.InputStream;
+import java.io.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
-import java.util.Scanner;
+import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ExecutorService;
@@ -48,11 +48,8 @@ public class Main {
      */
     private static void prepareResources() throws Exception {
         File FFmpegTemp = File.createTempFile("ffmpeg", ".exe");
-        FFmpegTemp.deleteOnExit();
         File fFprobeTemp = File.createTempFile("ffprobe", ".exe");
-        fFprobeTemp.deleteOnExit();
         File watermarkTemp = File.createTempFile("watermark", ".png");
-        watermarkTemp.deleteOnExit();
 
         extractResource(FFMPEG_BIN_NAME, FFmpegTemp);
         extractResource(FFPROBE_BIN_NAME, fFprobeTemp);
@@ -64,53 +61,53 @@ public class Main {
     }
 
     public static void main(String[] args) {
+        try {
+            prepareResources();
+        } catch (Exception e) {
+            System.err.println("FATÁLNÍ CHYBA: Selhala příprava binárek (FFmpeg/Watermark): " + e.getMessage());
+            return;
+        }
+
         Lock logLock = new ReentrantLock();
         BlockingQueue<TaskData> encodingQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
         BlockingQueue<TaskData> finishedQueue = new ArrayBlockingQueue<>(QUEUE_CAPACITY);
 
-        Scanner scanner = new Scanner(System.in);
-        System.out.println("Zadejte cestu ke složce s videi:");
-        String inputPath = scanner.nextLine();
-
-        System.out.println("Vyberte akci: 1.) WATERMARK, 2.) TRIM, 3.) KONVERZE:");
-        int actionChoice = scanner.nextInt();
-        scanner.nextLine();
-
-        String start= "00:00:00";
-        String duration = "00:00:00";
-        String format = "mp4";
-        OperationType action  = null;
-        ProducerAnalyser producerAnalyser = null;
-        switch (actionChoice) {
-            case 1:
-                action = OperationType.ADD_WATERMARK;
-                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,null,null);
-                break;
-            case 2:
-                action = OperationType.TRIM;
-                System.out.println("Zadejte start formát HH:MM:SS:");
-                start = scanner.nextLine();
-                System.out.println("Zadejte délku formát HH:MM:SS:");
-                duration = scanner.nextLine();
-                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,start,duration);
-                break;
-            case 3:
-                action = OperationType.CONVERT_FORMAT;
-                System.out.println("Zadejte formát:");
-                format = scanner.nextLine();
-                producerAnalyser = new ProducerAnalyser(encodingQueue, logLock,inputPath, action,format,null,null);
-                break;
-            default: System.err.println("Neplatná volba");
-        }
-        scanner.close();
-
-        try {
-            prepareResources();
-        } catch (Exception e) {
-            System.err.println("Chyba při připravování binárek: " + e.getMessage());
+        Properties configProps = new Properties();
+        try (FileInputStream fis = new FileInputStream("config.properties");
+             InputStreamReader reader = new InputStreamReader(fis, StandardCharsets.UTF_8)) {
+            configProps.load(reader);
+        }catch (IOException e) {
+            System.err.println("FATÁLNÍ CHYBA: Nelze načíst config.properties: " + e.getMessage());
             return;
         }
 
+        String operationName = configProps.getProperty("operation");
+        String inputPath = configProps.getProperty("input.path");
+
+        if (operationName == null || inputPath == null) {
+            System.err.println("FATÁLNÍ CHYBA: Chybí 'operation' nebo 'input.path' v config.properties.");
+            return;
+        }
+
+        IOperationInitializer initializer;
+        ProducerAnalyser producerAnalyser = null;
+
+        if (operationName.equals(OperationType.ADD_WATERMARK.name())) {
+            initializer = new WatermarkInitializer();
+        } else if (operationName.equals(OperationType.TRIM.name())) {
+            initializer = new TrimInitializer();
+        } else if (operationName.equals(OperationType.CONVERT_FORMAT.name())) {
+            initializer = new ConvertFormatInitializer();
+        } else {
+            System.err.println("Neznámá operace v konfiguraci: " + operationName);
+            return;
+        }
+        try {
+            producerAnalyser = initializer.initialize(configProps, encodingQueue, logLock, inputPath);
+        } catch (Exception e) {
+            System.err.println("Chyba inicializace producenta: " + e.getMessage());
+            return;
+        }
         System.out.println("Start");
         long startTime = System.nanoTime();
         new File(OUTPUT_DIR).mkdirs();
