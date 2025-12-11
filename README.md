@@ -46,7 +46,7 @@ Cuts the video file based on the specified start time and duration.
 | Configuration Key | Description | Example Value |
 | :--- | :--- | :--- |
 | `operation` | Must be set to **`TRIM`** | `TRIM` |
-| `input.path` | Absolute path to the folder containing source videos | `C:/Videos/Source` |
+| `input.path` | Absolute path to the folder containing videos | `C:/Videos/Source` |
 | `trim.start` | Start time (Format: **HH:MM:SS**) | `00:00:10` |
 | `trim.duration` | Duration (Format: **HH:MM:SS**) | `00:00:05` |
 
@@ -57,7 +57,7 @@ Converts the video to a new specified format.
 | Configuration Key | Description | Example Value |
 | :--- | :--- | :--- |
 | `operation` | Must be set to **`CONVERT_FORMAT`** | `CONVERT_FORMAT` |
-| `input.path` | Absolute path to the folder containing source videos | `C:/Videos/Source` |
+| `input.path` | Absolute path to the folder containing videos | `C:/Videos/Source` |
 | `format.target` | Target output format | `avi` (or `webm`, `mp4`) |
 
 ---
