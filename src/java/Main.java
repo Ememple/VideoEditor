@@ -2,6 +2,8 @@ import java.io.*;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -24,6 +26,14 @@ public class Main {
     public static String FFMPEG_PATH_EXTERNAL;
     public static String FFPROBE_PATH_EXTERNAL;
     public static String EXTERNAL_WATERMARK_PATH;
+
+    private static final Map<String, IOperationInitializer> initializers = new HashMap<>();
+
+    static {
+        initializers.put(OperationType.ADD_WATERMARK.name(), new WatermarkInitializer());
+        initializers.put(OperationType.TRIM.name(), new TrimInitializer());
+        initializers.put(OperationType.CONVERT_FORMAT.name(), new ConvertFormatInitializer());
+    }
 
 
     /**
@@ -89,19 +99,14 @@ public class Main {
             return;
         }
 
-        IOperationInitializer initializer;
-        ProducerAnalyser producerAnalyser = null;
+        ProducerAnalyser producerAnalyser;
+        IOperationInitializer initializer = initializers.get(operationName);
 
-        if (operationName.equals(OperationType.ADD_WATERMARK.name())) {
-            initializer = new WatermarkInitializer();
-        } else if (operationName.equals(OperationType.TRIM.name())) {
-            initializer = new TrimInitializer();
-        } else if (operationName.equals(OperationType.CONVERT_FORMAT.name())) {
-            initializer = new ConvertFormatInitializer();
-        } else {
+        if (initializer == null) {
             System.err.println("Neznámá operace v konfiguraci: " + operationName);
             return;
         }
+
         try {
             producerAnalyser = initializer.initialize(configProps, encodingQueue, logLock, inputPath);
         } catch (Exception e) {
